@@ -1,5 +1,5 @@
 const std = @import("std");
-const fixedBufferStream = std.io.fixedBufferStream;
+const Io = std.Io;
 const testing = std.testing;
 
 const style = @import("style.zig");
@@ -36,7 +36,7 @@ const font_style_codes = std.StaticStringMap([]const u8).initComptime(.{
 /// Tries to use as little bytes as necessary. Use this function if
 /// you want to optimize for smallest amount of transmitted bytes
 /// instead of computation speed.
-pub fn updateStyle(writer: anytype, new: Style, old: ?Style) !void {
+pub fn updateStyle(writer: *Io.Writer, new: Style, old: ?Style) !void {
     if (old) |sty| if (new.eql(sty)) return;
     if (new.isDefault()) return try resetStyle(writer);
 
@@ -117,136 +117,136 @@ pub fn updateStyle(writer: anytype, new: Style, old: ?Style) !void {
 
 test "same style default, no update" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), Style{}, Style{});
+    try updateStyle(&fixed_writer, Style{}, Style{});
 
     const expected = "";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }
 
 test "same style non-default, no update" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
 
     const sty = Style{
         .foreground = Color.Green,
     };
-    try updateStyle(fixed_buf_stream.writer(), sty, sty);
+    try updateStyle(&fixed_writer, sty, sty);
 
     const expected = "";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }
 
 test "reset to default, old null" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), Style{}, null);
+    try updateStyle(&fixed_writer, Style{}, null);
 
     const expected = "\x1B[0m";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }
 
 test "reset to default, old non-null" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), Style{}, Style{
+    try updateStyle(&fixed_writer, Style{}, Style{
         .font_style = .{ .bold = true },
     });
 
     const expected = "\x1B[0m";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }
 
 test "bold style" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), Style{
+    try updateStyle(&fixed_writer, Style{
         .font_style = .{ .bold = true },
     }, Style{});
 
     const expected = "\x1B[1m";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }
 
 test "add bold style" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), Style{
+    try updateStyle(&fixed_writer, Style{
         .font_style = .{ .bold = true, .italic = true },
     }, Style{
         .font_style = .{ .italic = true },
     });
 
     const expected = "\x1B[1m";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }
 
 test "reset required font style" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), Style{
+    try updateStyle(&fixed_writer, Style{
         .font_style = .{ .bold = true },
     }, Style{
         .font_style = .{ .bold = true, .underline = true },
     });
 
     const expected = "\x1B[0m\x1B[1m";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }
 
 test "reset required color style" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), Style{
+    try updateStyle(&fixed_writer, Style{
         .foreground = Color.Red,
     }, null);
 
     const expected = "\x1B[0m\x1B[31m";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }
 
 test "no reset required color style" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), Style{
+    try updateStyle(&fixed_writer, Style{
         .foreground = Color.Red,
     }, Style{});
 
     const expected = "\x1B[31m";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }
 
 test "no reset required add color style" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), Style{
+    try updateStyle(&fixed_writer, Style{
         .foreground = Color.Red,
         .background = Color.Magenta,
     }, Style{
@@ -254,51 +254,51 @@ test "no reset required add color style" {
     });
 
     const expected = "\x1B[31m";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }
 
-pub fn resetStyle(writer: anytype) !void {
+pub fn resetStyle(writer: *Io.Writer) !void {
     try writer.writeAll(reset);
 }
 
 test "reset style" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
 
-    try resetStyle(fixed_buf_stream.writer());
+    try resetStyle(&fixed_writer);
 
     const expected = "\x1B[0m";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }
 
 test "Grey foreground color" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
     var new_style = Style{};
     new_style.foreground = Color{ .Grey = 1 };
 
-    try updateStyle(fixed_buf_stream.writer(), new_style, Style{});
+    try updateStyle(&fixed_writer, new_style, Style{});
 
     const expected = "\x1B[38;2;1;1;1m";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }
 
 test "Grey background color" {
     var buf: [1024]u8 = undefined;
-    var fixed_buf_stream = fixedBufferStream(&buf);
+    var fixed_writer: Io.Writer = .fixed(&buf);
     var new_style = Style{};
     new_style.background = Color{ .Grey = 1 };
 
-    try updateStyle(fixed_buf_stream.writer(), new_style, Style{});
+    try updateStyle(&fixed_writer, new_style, Style{});
 
     const expected = "\x1B[48;2;1;1;1m";
-    const actual = fixed_buf_stream.getWritten();
+    const actual = fixed_writer.buffered();
 
     try testing.expectEqualSlices(u8, expected, actual);
 }

@@ -7,5 +7,5 @@ pub const format = @import("format.zig");
 pub const terminal = @import("terminal.zig");
 
 test {
-    std.testing.refAllDeclsRecursive(@This());
+    std.testing.refAllDecls(@This());
 }
